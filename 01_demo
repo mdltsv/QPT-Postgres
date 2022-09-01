@@ -1,0 +1,47 @@
+--1.1
+select distinct count(book_ref) from tickets group by book_ref;
+--1.2
+select cnt as cnt2, count(br) from (select count(ticket_no) as cnt, book_ref as br from tickets group by book_ref) as asdf group by cnt order by cnt2;
+--2.1
+select city from airports where airport_code not in
+(select arrival_airport
+from flights
+where	departure_airport in (select airport_code from airports where city='Москва' group by airport_code)
+and	arrival_airport not in (select airport_code from airports where city='Москва' group by airport_code)
+group by arrival_airport)
+group by city
+order by city;
+--2.2
+select city
+from airports
+except
+select a_arr.city
+from flights f
+join airports a_dep on f.departure_airport=a_dep.airport_code
+join airports a_arr on f.arrival_airport=a_arr.airport_code
+where   a_dep.city='Москва'
+and     a_arr.city!='Москва'
+group by a_arr.city;
+3.1
+select a.model  as maxcount, COUNT(model) as countmodel
+from flights f
+join aircrafts a on f.aircraft_code=a.aircraft_code
+group by a.model
+order by COUNT(model) desc
+limit 1;
+select a.model as mincount, COUNT(model) as countmodel
+from flights f
+join aircrafts a on f.aircraft_code=a.aircraft_code
+group by a.model
+order by COUNT(model) asc
+limit 1;
+3.2
+--Через аналитические функции
+3.3
+Их вариант через JOIN (оптимальнее ли?)
+4
+select a.model, count(bp.flight_id) from boarding_passes bp
+join flights f on bp.flight_id=f.flight_id
+join aircrafts a on a.aircraft_code=f.aircraft_code
+group by a.model
+order by count(bp.flight_id) DESC;
