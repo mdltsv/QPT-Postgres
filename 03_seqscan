@@ -1,0 +1,39 @@
+--1
+explain select avg(amount) from ticket_flights;
+	Finalize Aggregate  (cost=114641.35..114641.36 rows=1 width=32)
+	   ->  Gather  (cost=114641.13..114641.34 rows=2 width=32)
+		 Workers Planned: 2
+		 ->  Partial Aggregate  (cost=113641.13..113641.14 rows=1 width=32)
+		       ->  Parallel Seq Scan on ticket_flights  (cost=0.00..104899.50 rows=3496650 width=6)
+	Time: 5029,802 ms (00:05,030)
+
+--2.1
+explain with cte as (select avg(amount) from ticket_flights) select * from cte;
+	Finalize Aggregate  (cost=114641.35..114641.36 rows=1 width=32)
+	   ->  Gather  (cost=114641.13..114641.34 rows=2 width=32)
+		 Workers Planned: 2
+		 ->  Partial Aggregate  (cost=113641.13..113641.14 rows=1 width=32)
+		       ->  Parallel Seq Scan on ticket_flights  (cost=0.00..104899.50 rows=3496650 width=6)
+	Time: 4036,682 ms (00:04,037)
+--2.2
+explain with cte as materialized (select * from ticket_flights) select avg(amount) from cte;
+	Aggregate  (cost=342671.70..342671.71 rows=1 width=32)
+	   CTE cte
+	     ->  Seq Scan on ticket_flights  (cost=0.00..153852.60 rows=8391960 width=32)
+	   ->  CTE Scan on cte  (cost=0.00..167839.20 rows=8391960 width=16)
+	Time: 8870,506 ms (00:08,871)
+
+--3.1
+explain select * from flights;
+	Seq Scan on flights  (cost=0.00..4772.67 rows=214867 width=63)
+SHOW min_parallel_table_scan_size;
+	8MB
+SELECT pg_size_pretty(pg_table_size('flights')) size;
+	21 MB
+SET force_parallel_mode = on;
+explain select * from flights;
+	Gather  (cost=1000.00..27259.37 rows=214867 width=63)
+	   Workers Planned: 1
+	   Single Copy: true
+	   ->  Seq Scan on flights  (cost=0.00..4772.67 rows=214867 width=63)
+SET force_parallel_mode = off;
