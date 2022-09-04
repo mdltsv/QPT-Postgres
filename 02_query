@@ -1,0 +1,57 @@
+\timing on
+
+--1.1
+do $$
+begin
+        for i in 1..2 loop
+                execute 'select avg(amount) from ticket_flights';
+        end loop;
+end;$$;
+Time: 14491,226 ms (00:14,491)
+--1.2
+do $$
+begin
+	prepare q as select avg(amount) from ticket_flights;
+	for i in 1..2 loop
+		execute format('execute q(%s)',i);
+	end loop;
+	deallocate q;
+end;$$;
+Time: 14557,361 ms (00:14,557)
+--1.3
+do $$
+begin
+	for i in 1..2 loop
+		perform avg(amount) from ticket_flights;
+	end loop;
+end;$$;
+Time: 14671,893 ms (00:14,672)
+--Время изменилось незначительно — большую часть занимает выполнение запроса.
+
+--2.1
+do $$
+begin
+        for i in 1..10000 loop
+                execute 'select * FROM bookings WHERE book_ref = ''0824C5''';
+        end loop;
+end;$$;
+Time: 2596,638 ms (00:02,597)
+--2.2
+do $$
+begin
+	prepare qq as select * from bookings where book_ref = '0824C5';
+	for i in 1..10000 loop
+		execute format('execute qq',i);
+	end loop;
+	deallocate qq;
+end;$$;
+Time: 825,900 ms
+--2.3
+do $$
+begin
+	for i in 1..10000 loop
+		perform * from bookings where book_ref = '0824C5';
+	end loop;
+end;$$;
+Time: 676,033 ms
+--Время сократилось существенно — разбор и планирование занимает большую часть общего времени.
