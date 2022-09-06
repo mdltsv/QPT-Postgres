@@ -1,0 +1,76 @@
+--1
+create index test_idx on ticket_flights(amount);
+Time: 18225,142 ms (00:18,225)
+
+--2.1
+select count(*) from ticket_flights where amount>180000;
+	55640
+	Time: 21,283 ms
+explain (analyze) select count(*) from ticket_flights where amount>180000;
+	Aggregate  (cost=69649.60..69649.61 rows=1 width=8) (actual time=11.615..11.616 rows=1 loops=1)
+	   ->  Bitmap Heap Scan on ticket_flights  (cost=975.27..69519.65 rows=51979 width=0) (actual time=4.501..9.060 rows=55640 loops=1)
+			 Recheck Cond: (amount > '180000'::numeric)
+			 Heap Blocks: exact=1747
+			 ->  Bitmap Index Scan on test_idx  (cost=0.00..962.28 rows=51979 width=0) (actual time=4.335..4.335 rows=55640 loops=1)
+				   Index Cond: (amount > '180000'::numeric)
+	Time: 11.656 ms
+--2.2
+SET enable_bitmapscan = off;
+	Aggregate  (cost=90994.78..90994.79 rows=1 width=8) (actual time=20.127..20.128 rows=1 loops=1)
+	   ->  Index Only Scan using test_idx on ticket_flights  (cost=0.43..90864.83 rows=51979 width=0) (actual time=0.047..11.381 rows=55640 loops=1)
+			 Index Cond: (amount > '180000'::numeric)
+			 Heap Fetches: 0
+	Time: 20.263 ms
+--2.3
+SET enable_indexscan = off;
+	Finalize Aggregate  (cost=114694.92..114694.93 rows=1 width=8) (actual time=1813.514..1832.945 rows=1 loops=1)
+	   ->  Gather  (cost=114694.71..114694.92 rows=2 width=8) (actual time=1812.214..1832.627 rows=3 loops=1)
+			 Workers Planned: 2
+			 Workers Launched: 2
+			 ->  Partial Aggregate  (cost=113694.71..113694.72 rows=1 width=8) (actual time=1691.600..1691.602 rows=1 loops=3)
+				   ->  Parallel Seq Scan on ticket_flights  (cost=0.00..113640.56 rows=21658 width=0) (actual time=244.382..1685.891 rows=18547 loops=3)
+						 Filter: (amount > '180000'::numeric)
+						 Rows Removed by Filter: 2778737
+	Time: 1841.573 ms
+RESET enable_bitmapscan;
+RESET enable_indexscan;
+
+--3.1
+select count(*) from ticket_flights where amount<44000;
+	7583228
+	Time: 2282,182 ms (00:02,282)
+explain (analyze) select count(*) from ticket_flights where amount<44000;
+	Finalize Aggregate  (cost=122538.32..122538.33 rows=1 width=8) (actual time=2843.715..2887.256 rows=1 loops=1)
+	   ->  Gather  (cost=122538.10..122538.31 rows=2 width=8) (actual time=2834.440..2886.495 rows=3 loops=1)
+			 Workers Planned: 2
+			 Workers Launched: 2
+			 ->  Partial Aggregate  (cost=121538.10..121538.11 rows=1 width=8) (actual time=2709.677..2710.016 rows=1 loops=3)
+				   ->  Parallel Seq Scan on ticket_flights  (cost=0.00..113640.56 rows=3159016 width=0) (actual time=69.955..2353.183 rows=2527743 loops=3)
+						 Filter: (amount < '44000'::numeric)
+						 Rows Removed by Filter: 269541
+	Time: 2896.584 ms
+SET enable_seqscan = off;
+	Finalize Aggregate  (cost=262599.18..262599.19 rows=1 width=8) (actual time=4700.406..4731.595 rows=1 loops=1)
+	   ->  Gather  (cost=262598.97..262599.18 rows=2 width=8) (actual time=4697.523..4731.556 rows=3 loops=1)
+			 Workers Planned: 2
+			 Workers Launched: 2
+			 ->  Partial Aggregate  (cost=261598.97..261598.98 rows=1 width=8) (actual time=4541.016..4541.049 rows=1 loops=3)
+				   ->  Parallel Bitmap Heap Scan on ticket_flights  (cost=142038.14..253701.43 rows=3159016 width=0) (actual time=1297.214..4303.957 rows=25277>
+						 Recheck Cond: (amount < '44000'::numeric)
+						 Rows Removed by Index Recheck: 98980
+						 Heap Blocks: exact=12961 lossy=11391
+						 ->  Bitmap Index Scan on test_idx  (cost=0.00..140142.73 rows=7581639 width=0) (actual time=1397.102..1397.106 rows=7583228 loops=1)
+							   Index Cond: (amount < '44000'::numeric)
+	Time: 4732.663 ms
+SET enable_bitmapscan = off;
+	Finalize Aggregate  (cost=348576.83..348576.84 rows=1 width=8) (actual time=7238.316..7277.822 rows=1 loops=1)
+	   ->  Gather  (cost=348576.61..348576.82 rows=2 width=8) (actual time=7234.729..7274.864 rows=3 loops=1)
+			 Workers Planned: 2
+			 Workers Launched: 2
+			 ->  Partial Aggregate  (cost=347576.61..347576.62 rows=1 width=8) (actual time=7120.024..7120.026 rows=1 loops=3)
+				   ->  Parallel Index Only Scan using test_idx on ticket_flights  (cost=0.43..339679.07 rows=3159016 width=0) (actual time=1.613..6712.655 rows>
+						 Index Cond: (amount < '44000'::numeric)
+						 Heap Fetches: 5185943
+	Time: 7283.532 ms
+RESET enable_bitmapscan;
+RESET enable_seqscan;
