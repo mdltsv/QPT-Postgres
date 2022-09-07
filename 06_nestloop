@@ -1,0 +1,39 @@
+--1
+create index test_6_flights_idx on flights (departure_airport);
+	Time: 323,414 ms
+eaplin analyze	select *
+				from flights f
+				join airports a on f.departure_airport=a.airport_code
+				where a.city='Ульяновск';
+	Nested Loop  (cost=24.31..3732.03 rows=2066 width=162) (actual time=0.189..8.904 rows=3791 loops=1)
+	   ->  Seq Scan on airports_data ml  (cost=0.00..30.56 rows=1 width=145) (actual time=0.134..0.182 rows=2 loops=1)
+			 Filter: ((city ->> lang()) = 'Ульяновск'::text)
+			 Rows Removed by Filter: 102
+	   ->  Bitmap Heap Scan on flights f  (cost=24.31..2637.48 rows=2066 width=63) (actual time=0.054..0.273 rows=1896 loops=2)
+			 Recheck Cond: (departure_airport = ml.airport_code)
+			 Heap Blocks: exact=49
+			 ->  Bitmap Index Scan on test_6_flights_idx  (cost=0.00..23.79 rows=2066 width=0) (actual time=0.047..0.047 rows=1896 loops=2)
+				   Index Cond: (departure_airport = ml.airport_code)
+	Time: 10.882 ms
+
+--2
+explain analyze select * from aircrafts, airports;
+	Nested Loop  (cost=0.00..725.87 rows=936 width=139) (actual time=1.114..5.429 rows=936 loops=1)
+	   ->  Seq Scan on airports_data ml_1  (cost=0.00..4.04 rows=104 width=145) (actual time=0.007..0.022 rows=104 loops=1)
+	   ->  Materialize  (cost=0.00..1.14 rows=9 width=72) (actual time=0.002..0.002 rows=9 loops=104)
+			 ->  Seq Scan on aircrafts_data ml  (cost=0.00..1.09 rows=9 width=72) (actual time=0.197..0.199 rows=9 loops=1)
+	Time: 9.758 ms
+Nested loops — единственный способ выполнения таких соединений!
+
+--3.1
+create extension earthdistance CASCADE;
+--3.2
+explain analyze	select a1.airport_code, a2.airport_code, a1.coordinates <@> a2.coordinates
+				from airports a1
+				join airports.a2 on a1.airport_code>a2.airport_code;
+	Nested Loop  (cost=0.14..147.97 rows=3605 width=16) (actual time=0.050..2.299 rows=5356 loops=1)
+	   ->  Seq Scan on airports_data ml  (cost=0.00..4.04 rows=104 width=20) (actual time=0.009..0.016 rows=104 loops=1)
+	   ->  Index Scan using airports_data_pkey on airports_data ml_1  (cost=0.14..0.95 rows=35 width=20) (actual time=0.004..0.012 rows=52 loops=10>
+			 Index Cond: (airport_code < ml.airport_code)
+	Time: 2.929 ms
+Снова Nested loops — единственный способ выполнения таких соединений!
