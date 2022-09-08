@@ -1,0 +1,44 @@
+--1
+explain analyze	select * from flights t
+				join boarding_passes bp on t.flight_id=bp.flight_id;
+	Hash Join  (cost=8298.51..229399.73 rows=7925688 width=7) (actual time=133.948..6424.981 rows=7925812 loops=1)
+	   Hash Cond: (bp.flight_id = t.flight_id)
+	   ->  Seq Scan on boarding_passes bp  (cost=0.00..137535.88 rows=7925688 width=7) (actual time=33.616..2348.689 rows=7925812 loops=1)
+	   ->  Hash  (cost=4772.67..4772.67 rows=214867 width=4) (actual time=99.733..99.734 rows=214867 loops=1)
+			 Buckets: 131072  Batches: 4  Memory Usage: 2917kB
+			 ->  Seq Scan on flights t  (cost=0.00..4772.67 rows=214867 width=4) (actual time=0.020..38.650 rows=214867 loops=1)
+	Time: 6890.441 ms
+
+--2
+explain analyze	select count(*) from flights t
+				join boarding_passes bp on t.flight_id=bp.flight_id;
+	Finalize Aggregate  (cost=114695.55..114695.56 rows=1 width=8) (actual time=3408.376..3442.342 rows=1 loops=1)
+	   ->  Gather  (cost=114695.34..114695.55 rows=2 width=8) (actual time=3392.802..3442.311 rows=3 loops=1)
+			 Workers Planned: 2
+			 Workers Launched: 2
+			 ->  Partial Aggregate  (cost=113695.34..113695.35 rows=1 width=8) (actual time=3260.198..3260.458 rows=1 loops=3)
+				   ->  Parallel Hash Join  (cost=5467.82..105439.41 rows=3302370 width=0) (actual time=112.579..2815.574 rows=2641937 loops=3)
+						 Hash Cond: (bp.flight_id = t.flight_id)
+						 ->  Parallel Seq Scan on boarding_passes bp  (cost=0.00..91302.70 rows=3302370 width=4) (actual time=1.010..1279.378 rows=>
+						 ->  Parallel Hash  (cost=3887.92..3887.92 rows=126392 width=4) (actual time=110.558..110.561 rows=71622 loops=3)
+							   Buckets: 262144  Batches: 1  Memory Usage: 10496kB
+							   ->  Parallel Seq Scan on flights t  (cost=0.00..3887.92 rows=126392 width=4) (actual time=22.269..45.448 rows=71622 >
+	Time: 3443.694 ms
+
+--3
+explain analyze	select t.passenger_name, f.flight_no
+				from tickets t
+				join ticket_flights tf on t.ticket_no=tf.ticket_no
+				join flights f on tf.flight_id=f.flight_id;
+	Hash Join  (cost=144461.29..560274.50 rows=8391852 width=23) (actual time=3025.184..20734.534 rows=8391852 loops=1)
+	   Hash Cond: (tf.flight_id = f.flight_id)
+	   ->  Hash Join  (cost=135952.78..430342.95 rows=8391852 width=20) (actual time=2637.323..15056.861 rows=8391852 loops=1)
+			 Hash Cond: (tf.ticket_no = t.ticket_no)
+			 ->  Seq Scan on ticket_flights tf  (cost=0.00..153851.52 rows=8391852 width=18) (actual time=0.033..5112.320 rows=8391852 loops=1)
+			 ->  Hash  (cost=78913.57..78913.57 rows=2949857 width=30) (actual time=2635.379..2635.383 rows=2949857 loops=1)
+				   Buckets: 65536  Batches: 64  Memory Usage: 3302kB
+				   ->  Seq Scan on tickets t  (cost=0.00..78913.57 rows=2949857 width=30) (actual time=2.212..1364.419 rows=2949857 loops=1)
+	   ->  Hash  (cost=4772.67..4772.67 rows=214867 width=11) (actual time=384.694..384.695 rows=214867 loops=1)
+			 Buckets: 131072  Batches: 4  Memory Usage: 3338kB
+			 ->  Seq Scan on flights f  (cost=0.00..4772.67 rows=214867 width=11) (actual time=281.604..324.526 rows=214867 loops=1)
+	Time: 21207.833 ms
